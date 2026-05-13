@@ -174,7 +174,7 @@ function renderOpponent(sid, grid) {
       const y = r * CELL;
       if (grid[r] && grid[r][c]) {
         const val = grid[r][c];
-        const color = PIECE_COLORS[val] || GARBAGE_COLOR;
+        const color = val || GARBAGE_COLOR;
         ctx.fillStyle = color;
         ctx.fillRect(x + 1, y + 1, CELL - 2, CELL - 2);
       } else {
