@@ -41,12 +41,28 @@
     function connectWS() {
       var wsUrl = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws?room=' + encodeURIComponent(roomId);
       try {
-        ws = new WebSocket(wsUrl);
+        var realWS = new WebSocket(wsUrl);
+        var bound = false;
+
+        realWS.addEventListener('open', function () {
+          if (bound) return;
+          bound = true;
+          ws = realWS;
+          bindWS(ws);
+        });
+
+        realWS.addEventListener('error', function () {
+          if (bound) return;
+          bound = true;
+          console.warn('[game] WebSocket 连接失败，使用 Mock 模式');
+          ws = createMockWS();
+          bindWS(ws);
+        });
       } catch (e) {
-        console.warn('[game] 使用 Mock 模式');
+        console.warn('[game] WebSocket 构造失败，使用 Mock 模式');
         ws = createMockWS();
+        bindWS(ws);
       }
-      bindWS(ws);
     }
 
     function bindWS(socket) {
@@ -101,6 +117,7 @@
         }
       }
 
+      // 模拟对手加入（AC2）
       setTimeout(function () {
         mws._emit('message', { data: JSON.stringify({
           type: 'game_state_update',
@@ -109,6 +126,34 @@
           })
         })});
       }, 300);
+
+      // 模拟攻击闪烁（AC3）
+      setTimeout(function () {
+        mws._emit('message', { data: JSON.stringify({
+          type: 'garbage_line_attack',
+          lines: 2
+        })});
+      }, 800);
+
+      // 模拟对手淘汰（AC4）
+      setTimeout(function () {
+        mws._emit('message', { data: JSON.stringify({
+          type: 'player_eliminated',
+          playerId: 'p3'
+        })});
+      }, 1200);
+
+      // 模拟游戏结束（AC5）
+      setTimeout(function () {
+        mws._emit('message', { data: JSON.stringify({
+          type: 'game_over',
+          rankings: [
+            { playerId: 'self', playerName: 'You', rank: 1, score: 5200 },
+            { playerId: 'p2', playerName: 'Player 2', rank: 2, score: 3100 },
+            { playerId: 'p3', playerName: 'Player 3', rank: 3, score: 1800 }
+          ]
+        })});
+      }, 1800);
 
       return mws;
     }
