@@ -1,0 +1,256 @@
+/* ==============================================
+   multiplayer.css — 多人对战 UI 全部样式
+   ============================================== */
+
+/* ---- 通用 ---- */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: #0a0a1a;
+  color: #e0e0e0;
+  min-height: 100vh;
+}
+
+.btn {
+  display: inline-block;
+  padding: 10px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+.btn:active {
+  transform: scale(0.97);
+}
+.btn-primary {
+  background: #4f8cff;
+  color: #fff;
+}
+.btn-primary:hover {
+  background: #3a74e0;
+}
+.btn-secondary {
+  background: #444;
+  color: #e0e0e0;
+}
+.btn-secondary:hover {
+  background: #555;
+}
+
+/* ---- 房间大厅 ---- */
+.lobby-container {
+  max-width: 480px;
+  margin: 80px auto 0;
+  padding: 0 20px;
+}
+.lobby-title {
+  text-align: center;
+  font-size: 28px;
+  margin-bottom: 32px;
+  color: #fff;
+}
+.lobby-panel {
+  background: #161628;
+  border-radius: 12px;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.lobby-section h2 {
+  font-size: 18px;
+  margin-bottom: 12px;
+  color: #aaa;
+}
+.lobby-divider {
+  height: 1px;
+  background: #2a2a4a;
+}
+.join-room-form {
+  display: flex;
+  gap: 10px;
+}
+.input-room-id {
+  flex: 1;
+  padding: 10px 14px;
+  font-size: 15px;
+  border: 1px solid #333;
+  border-radius: 6px;
+  background: #1a1a30;
+  color: #e0e0e0;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.input-room-id:focus {
+  border-color: #4f8cff;
+}
+.lobby-status {
+  text-align: center;
+  margin-top: 16px;
+  font-size: 14px;
+  min-height: 20px;
+}
+.lobby-status--info { color: #888; }
+.lobby-status--success { color: #4caf50; }
+.lobby-status--error { color: #f44336; }
+.lobby-status--warning { color: #ff9800; }
+.room-list {
+  margin-top: 20px;
+}
+
+/* ---- 游戏页面布局 ---- */
+.game-container {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+.game-local {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.game-local .field-wrapper {
+  position: relative;
+}
+.game-opponents {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 20px;
+}
+
+/* ---- 对手场地缩略图 ---- */
+.field-thumbnail {
+  background: #111122;
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: filter 0.4s;
+}
+.field-name {
+  font-size: 13px;
+  color: #888;
+  margin-bottom: 6px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 130px;
+}
+.field-canvas {
+  display: block;
+  border-radius: 4px;
+}
+
+/* ---- 淘汰状态 ---- */
+.field-eliminated {
+  filter: grayscale(100%);
+}
+.field-eliminated-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 8px;
+}
+.field-eliminated-overlay span {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ff4444;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+}
+.field-thumbnail {
+  position: relative;
+}
+
+/* ---- 攻击闪烁动画 (AC3) ---- */
+.attack-flash {
+  animation: attack-flash-anim 600ms ease-out;
+}
+@keyframes attack-flash-anim {
+  0%   { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.8); }
+  30%  { box-shadow: 0 0 20px 8px rgba(255, 0, 0, 0.6); }
+  60%  { box-shadow: 0 0 12px 4px rgba(255, 0, 0, 0.3); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+}
+
+/* ---- 结算面板 (AC5) ---- */
+.result-panel-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.result-panel {
+  background: #1a1a2e;
+  border-radius: 12px;
+  padding: 36px 48px;
+  min-width: 320px;
+  max-width: 480px;
+  text-align: center;
+}
+.result-title {
+  font-size: 24px;
+  margin-bottom: 24px;
+  color: #fff;
+}
+.result-rank-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+.result-rank-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: #222240;
+  border-radius: 8px;
+}
+.result-rank-badge {
+  font-size: 18px;
+  font-weight: 700;
+  min-width: 40px;
+}
+.rank-1 { color: #ffd700; }
+.rank-2 { color: #c0c0c0; }
+.rank-3 { color: #cd7f32; }
+.result-player-name {
+  flex: 1;
+  text-align: left;
+  font-size: 15px;
+}
+.result-score {
+  font-size: 14px;
+  color: #888;
+}
+.result-btn-back {
+  margin-top: 8px;
+}
