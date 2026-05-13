@@ -1,6 +1,6 @@
 import random
 
-from game.pieces import SHAPES, PIECE_NAMES, WALL_KICKS, get_cells, get_shape
+from game.pieces import PIECE_NAMES, WALL_KICKS, get_cells, get_shape
 
 GRID_WIDTH = 10
 GRID_HEIGHT = 20

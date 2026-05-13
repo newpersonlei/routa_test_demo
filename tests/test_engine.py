@@ -1,4 +1,4 @@
-from game.pieces import SHAPES, PIECE_NAMES, get_cells, get_shape, WALL_KICKS
+from game.pieces import SHAPES, get_cells, get_shape
 from game.engine import TetrisEngine, GRID_WIDTH, GRID_HEIGHT, SCORE_TABLE
 
 
@@ -36,13 +36,9 @@ def test_ac1_rotation_produces_correct_cell_count():
 def test_ac1_rotation_consistency_i():
     shape0 = get_shape("I", 0)
     shape1 = get_shape("I", 1)
-    shape2 = get_shape("I", 2)
-    shape3 = get_shape("I", 3)
 
     cells0 = sorted(get_cells(shape0, 0, 0))
     cells1 = sorted(get_cells(shape1, 0, 0))
-    cells2 = sorted(get_cells(shape2, 0, 0))
-    cells3 = sorted(get_cells(shape3, 0, 0))
 
     assert cells0 == [(1, 0), (1, 1), (1, 2), (1, 3)]
     assert cells1 == [(0, 2), (1, 2), (2, 2), (3, 2)]
@@ -255,8 +251,9 @@ def test_ac3_multi_clear_accumulates():
 
 def test_ac4_game_over_on_spawn_collision():
     engine = TetrisEngine()
-    for c in range(GRID_WIDTH):
-        engine.grid[0][c] = "T"
+    for r in range(4):
+        for c in range(GRID_WIDTH):
+            engine.grid[r][c] = "T"
     engine.current_piece = None
     engine._spawn_current()
     assert engine.game_over is True
