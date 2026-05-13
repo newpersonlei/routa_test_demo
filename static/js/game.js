@@ -1,6 +1,6 @@
 /**
  * game.js — 主游戏脚本
- * Canvas 渲染循环、键盘事件监听、状态同步（含客户端 mock 引擎）
+ * Canvas 渲染循环、键盘事件监听、状态同步（含客户端 mock 引擎 + 多人 WebSocket）
  */
 
 import {
@@ -8,6 +8,11 @@ import {
   drawGrid, drawActivePiece, drawGhostPiece,
   drawNextPiece, drawGameOver, computeGhostY, collides,
 } from './renderer.js';
+import {
+  createRoom, joinRoom, startGame,
+  sendStateUpdate, sendLinesCleared, sendGameOver,
+  setGarbageHandler, setGameOverHandler, setGameStartedHandler,
+} from './multiplayer.js';
 
 // ── Tetromino definitions ───────────────────────────────────────────
 
@@ -32,6 +37,8 @@ let score = 0;
 let level = 1;
 let linesCleared = 0;
 let gameOver = false;
+let isMultiplayer = false;
+let gameStarted = false;
 
 function createGrid() {
   const g = [];
@@ -82,7 +89,10 @@ function lockPiece() {
       }
     }
   }
-  clearLines();
+  const cleared = clearLines();
+  if (cleared >= 2 && isMultiplayer) {
+    sendLinesCleared(cleared);
+  }
 }
 
 function clearLines() {
@@ -92,7 +102,7 @@ function clearLines() {
       grid.splice(r, 1);
       grid.unshift(new Array(COLS).fill(0));
       cleared++;
-      r++; // re-check this row
+      r++;
     }
   }
   if (cleared > 0) {
@@ -101,6 +111,21 @@ function clearLines() {
     linesCleared += cleared;
     level = Math.floor(linesCleared / 10) + 1;
   }
+  return cleared;
+}
+
+function addGarbageLines(count) {
+  for (let i = 0; i < count; i++) {
+    grid.shift();
+    const gap = Math.floor(Math.random() * COLS);
+    const row = new Array(COLS).fill('#888888');
+    row[gap] = 0;
+    grid.push(row);
+  }
+  if (currentPiece && collides(currentPiece.shape, currentPiece.x, currentPiece.y, grid)) {
+    gameOver = true;
+    triggerGameOver();
+  }
 }
 
 function spawnPiece() {
@@ -108,6 +133,7 @@ function spawnPiece() {
   nextPiece = makePiece(randomType());
   if (collides(currentPiece.shape, currentPiece.x, currentPiece.y, grid)) {
     gameOver = true;
+    triggerGameOver();
   }
 }
 
@@ -130,7 +156,6 @@ function engineMoveRight() {
 function engineRotate() {
   if (gameOver || !currentPiece) return;
   const rotated = rotateMatrix(currentPiece.shape);
-  // Try basic rotation, then wall kicks
   const kicks = [0, -1, 1, -2, 2];
   for (const kick of kicks) {
     if (!collides(rotated, currentPiece.x + kick, currentPiece.y, grid)) {
@@ -183,6 +208,12 @@ function getEngineState() {
   return { grid, score, level, lines_cleared: linesCleared, current_piece: currentPiece, next_piece: nextPiece, game_over: gameOver };
 }
 
+function triggerGameOver() {
+  if (isMultiplayer && gameStarted) {
+    sendGameOver();
+  }
+}
+
 // ── Canvas setup ────────────────────────────────────────────────────
 
 const gameCanvas = document.getElementById('game-canvas');
@@ -229,7 +260,6 @@ const DAS_REPEAT = 50;
 document.addEventListener('keydown', (e) => {
   if (gameOver && e.code !== 'Space') return;
 
-  const now = performance.now();
   const actionKeys = ['ArrowLeft', 'ArrowRight', 'ArrowDown'];
 
   if (actionKeys.includes(e.code)) {
@@ -237,7 +267,7 @@ document.addEventListener('keydown', (e) => {
     if (!keysDown.has(e.code)) {
       keysDown.add(e.code);
       handleKey(e.code);
-      lastActionTime = now;
+      lastActionTime = performance.now();
     }
   } else if (e.code === 'ArrowUp') {
     e.preventDefault();
@@ -274,6 +304,20 @@ function processDAS() {
   }
 }
 
+// ── Multiplayer state sync ──────────────────────────────────────────
+
+let lastSyncTime = 0;
+const SYNC_INTERVAL = 200;
+
+function maybeSync(timestamp) {
+  if (!isMultiplayer || !gameStarted || gameOver) return;
+  if (timestamp - lastSyncTime >= SYNC_INTERVAL) {
+    const state = getEngineState();
+    sendStateUpdate(state);
+    lastSyncTime = timestamp;
+  }
+}
+
 // ── Game loop ───────────────────────────────────────────────────────
 
 let lastTick = 0;
@@ -289,6 +333,7 @@ function gameLoop(timestamp) {
       lastTick = timestamp;
     }
     processDAS();
+    maybeSync(timestamp);
   }
   render();
   requestAnimationFrame(gameLoop);
@@ -297,6 +342,50 @@ function gameLoop(timestamp) {
 // ── Restart button ──────────────────────────────────────────────────
 
 restartBtn.addEventListener('click', () => {
+  engineReset();
+});
+
+// ── Multiplayer UI wiring ──────────────────────────────────────────
+
+document.getElementById('create-room-btn').addEventListener('click', () => {
+  const name = document.getElementById('player-name').value || '';
+  createRoom(name);
+});
+
+document.getElementById('join-room-btn').addEventListener('click', () => {
+  const roomId = document.getElementById('room-id-input').value.trim();
+  const name = document.getElementById('player-name').value || '';
+  if (roomId) joinRoom(roomId, name);
+});
+
+document.getElementById('start-btn').addEventListener('click', () => {
+  startGame();
+});
+
+document.getElementById('single-btn').addEventListener('click', () => {
+  isMultiplayer = false;
+  document.getElementById('room-panel').style.display = 'none';
+  engineReset();
+});
+
+setGarbageHandler((count) => {
+  addGarbageLines(count);
+});
+
+setGameOverHandler((won, rankings) => {
+  gameOver = true;
+  if (won) {
+    document.getElementById('game-over-overlay').classList.remove('hidden');
+    document.getElementById('game-over-overlay').querySelector('button').textContent = '胜利！重新开始';
+  } else {
+    document.getElementById('game-over-overlay').classList.remove('hidden');
+    document.getElementById('game-over-overlay').querySelector('button').textContent = '重新开始';
+  }
+});
+
+setGameStartedHandler(() => {
+  isMultiplayer = true;
+  gameStarted = true;
   engineReset();
 });
 

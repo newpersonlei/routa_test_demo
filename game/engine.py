@@ -170,6 +170,17 @@ class TetrisEngine:
         }
         return state
 
+    def add_garbage_lines(self, count):
+        """Insert gray garbage lines at the bottom of the grid, pushing content up."""
+        for _ in range(count):
+            self.grid.pop(0)
+            gap = random.randint(0, GRID_WIDTH - 1)
+            row = [8] * GRID_WIDTH
+            row[gap] = 0
+            self.grid.append(row)
+        if self.current_piece and not self._is_valid_position(self.current_piece):
+            self.game_over = True
+
     def reset(self):
         self.grid = [[0] * GRID_WIDTH for _ in range(GRID_HEIGHT)]
         self.score = 0
