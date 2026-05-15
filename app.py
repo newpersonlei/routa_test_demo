@@ -17,6 +17,14 @@ def create_app():
     def index():
         return render_template("index.html")
 
+    @app.route("/lobby")
+    def lobby():
+        return render_template("lobby.html")
+
+    @app.route("/game")
+    def game():
+        return render_template("game.html")
+
     @app.route("/api/state")
     def api_state():
         return jsonify({
@@ -112,9 +120,10 @@ def create_app():
         leave_room(room.room_id)
         emit("player_disconnected", {"sid": request.sid, "room": room.to_dict()}, room=room.room_id)
 
-    return app, socketio
+    return app, socketio, manager
 
+
+app, socketio, manager = create_app()
 
 if __name__ == "__main__":
-    app, socketio = create_app()
     socketio.run(app, host="0.0.0.0", port=5000, debug=True)
