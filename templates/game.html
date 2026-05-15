@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>多人对战 - 游戏</title>
+  <link rel="stylesheet" href="/static/css/multiplayer.css">
+</head>
+<body>
+  <div class="game-container">
+    <!-- 本方场地 -->
+    <div class="game-local">
+      <div class="field-wrapper" id="local-field">
+        <canvas id="local-canvas" width="300" height="600"></canvas>
+      </div>
+    </div>
+
+    <!-- 对手场地 -->
+    <div class="game-opponents" id="opponents-container"></div>
+  </div>
+
+  <script src="/static/js/opponent-field.js"></script>
+  <script src="/static/js/attack-effects.js"></script>
+  <script src="/static/js/game-result.js"></script>
+  <script>
+  (function () {
+    'use strict';
+
+    // --- 初始化组件 ---
+    var opponentMgr = new OpponentFieldManager(
+      document.getElementById('opponents-container')
+    );
+    AttackEffects.init(document.getElementById('local-field'));
+    GameResult.bindWebSocket(null); // 占位，由外部连接管理器绑定
+
+    // --- WebSocket 连接（开发阶段使用 Mock）---
+    var ws = null;
+    var params = new URLSearchParams(location.search);
+    var roomId = params.get('room') || 'TEST';
+
+    function connectWS() {
+      var wsUrl = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws?room=' + encodeURIComponent(roomId);
+      try {
+        var realWS = new WebSocket(wsUrl);
+        var bound = false;
+
+        realWS.addEventListener('open', function () {
+          if (bound) return;
+          bound = true;
+          ws = realWS;
+          bindWS(ws);
+        });
+
+        realWS.addEventListener('error', function () {
+          if (bound) return;
+          bound = true;
+          console.warn('[game] WebSocket 连接失败，使用 Mock 模式');
+          ws = createMockWS();
+          bindWS(ws);
+        });
+      } catch (e) {
+        console.warn('[game] WebSocket 构造失败，使用 Mock 模式');
+        ws = createMockWS();
+        bindWS(ws);
+      }
+    }
+
+    function bindWS(socket) {
+      AttackEffects.bindWebSocket(socket);
+      GameResult.bindWebSocket(socket);
+
+      socket.addEventListener('message', function (event) {
+        var msg;
+        try { msg = JSON.parse(event.data); } catch (e) { return; }
+
+        switch (msg.type) {
+          case 'game_state_update':
+            // msg = { players: [{ playerId, playerName, board }] }
+            (msg.players || []).forEach(function (p) {
+              opponentMgr.addPlayer(p.playerId, p.playerName);
+              opponentMgr.updatePlayerBoard(p.playerId, p.board);
+            });
+            break;
+          case 'player_eliminated':
+            opponentMgr.eliminatePlayer(msg.playerId);
+            break;
+        }
+      });
+    }
+
+    // --- Mock WebSocket ---
+    function createMockWS() {
+      var mws = {
+        handlers: {},
+        readyState: 1,
+        addEventListener: function (evt, fn) {
+          if (!this.handlers[evt]) this.handlers[evt] = [];
+          this.handlers[evt].push(fn);
+        },
+        send: function () {},
+        _emit: function (evt, data) {
+          (this.handlers[evt] || []).forEach(function (h) { h(data); });
+        }
+      };
+
+      // 模拟对手加入
+      var mockPlayers = [
+        { playerId: 'p2', playerName: 'Player 2' },
+        { playerId: 'p3', playerName: 'Player 3' }
+      ];
+
+      var emptyBoard = [];
+      for (var r = 0; r < 20; r++) {
+        emptyBoard[r] = [];
+        for (var c = 0; c < 10; c++) {
+          emptyBoard[r][c] = 0;
+        }
+      }
+
+      // 模拟对手加入（AC2）
+      setTimeout(function () {
+        mws._emit('message', { data: JSON.stringify({
+          type: 'game_state_update',
+          players: mockPlayers.map(function (p) {
+            return { playerId: p.playerId, playerName: p.playerName, board: emptyBoard };
+          })
+        })});
+      }, 300);
+
+      // 模拟攻击闪烁（AC3）
+      setTimeout(function () {
+        mws._emit('message', { data: JSON.stringify({
+          type: 'garbage_line_attack',
+          lines: 2
+        })});
+      }, 800);
+
+      // 模拟对手淘汰（AC4）
+      setTimeout(function () {
+        mws._emit('message', { data: JSON.stringify({
+          type: 'player_eliminated',
+          playerId: 'p3'
+        })});
+      }, 1200);
+
+      // 模拟游戏结束（AC5）
+      setTimeout(function () {
+        mws._emit('message', { data: JSON.stringify({
+          type: 'game_over',
+          rankings: [
+            { playerId: 'self', playerName: 'You', rank: 1, score: 5200 },
+            { playerId: 'p2', playerName: 'Player 2', rank: 2, score: 3100 },
+            { playerId: 'p3', playerName: 'Player 3', rank: 3, score: 1800 }
+          ]
+        })});
+      }, 1800);
+
+      return mws;
+    }
+
+    // 启动
+    document.addEventListener('DOMContentLoaded', connectWS);
+  })();
+  </script>
+</body>
+</html>
